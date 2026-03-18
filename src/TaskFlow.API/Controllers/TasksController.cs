@@ -21,8 +21,8 @@ public class TasksController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAll()
-        => Ok(await _mediator.Send(new GetTasksQuery()));
+    public async Task<IActionResult> GetAll([FromQuery] string? tag = null)
+    => Ok(await _mediator.Send(new GetTasksQuery(tag)));
 
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateTaskCommand cmd)

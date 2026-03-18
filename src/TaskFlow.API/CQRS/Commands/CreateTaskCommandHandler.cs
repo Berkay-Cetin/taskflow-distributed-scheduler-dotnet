@@ -9,15 +9,18 @@ public class CreateTaskCommandHandler : IRequestHandler<CreateTaskCommand, Sched
 {
     private readonly TaskFlowDbContext _db;
     private readonly ScheduleCalculator _calculator;
+    private readonly AuditService _audit;
     private readonly ILogger<CreateTaskCommandHandler> _logger;
 
     public CreateTaskCommandHandler(
         TaskFlowDbContext db,
         ScheduleCalculator calculator,
+        AuditService audit,
         ILogger<CreateTaskCommandHandler> logger)
     {
         _db = db;
         _calculator = calculator;
+        _audit = audit;
         _logger = logger;
     }
 
@@ -37,11 +40,22 @@ public class CreateTaskCommandHandler : IRequestHandler<CreateTaskCommand, Sched
             RetryCount = cmd.RetryCount,
             RetryDelaySeconds = cmd.RetryDelaySeconds,
             TimeoutSeconds = cmd.TimeoutSeconds,
+            MaxConcurrent = cmd.MaxConcurrent,
+            Priority = cmd.Priority,
+            AllowMissedRuns = cmd.AllowMissedRuns,
             NextRunAt = _calculator.GetNextRun(cmd.ScheduleType, cmd.CronExpression, cmd.IntervalMinutes),
         };
 
         _db.Tasks.Add(task);
         await _db.SaveChangesAsync(ct);
+
+        await _audit.LogAsync("TaskCreated", "Task", task.Id, task.Name, newValue: new
+        {
+            task.Name,
+            task.WebhookUrl,
+            task.ScheduleType,
+            task.Priority
+        });
 
         _logger.LogInformation("[TASK CREATED] {Name} | Next: {NextRun}", task.Name, task.NextRunAt);
         return task;

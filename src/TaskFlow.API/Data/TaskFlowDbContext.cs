@@ -10,6 +10,9 @@ public class TaskFlowDbContext : DbContext
     public DbSet<ScheduledTask> Tasks => Set<ScheduledTask>();
     public DbSet<TaskExecution> Executions => Set<TaskExecution>();
     public DbSet<MissedRun> MissedRuns => Set<MissedRun>();
+    public DbSet<TaskTag> Tags => Set<TaskTag>();
+    public DbSet<ScheduledTaskTag> TaskTags => Set<ScheduledTaskTag>();
+    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
     protected override void OnModelCreating(ModelBuilder mb)
     {
@@ -52,6 +55,43 @@ public class TaskFlowDbContext : DbContext
             e.HasIndex(x => x.TaskId);
             e.HasIndex(x => x.Recovered);
             e.HasIndex(x => x.ScheduledAt);
+        });
+
+        mb.Entity<TaskTag>(e =>
+        {
+            e.ToTable("task_tags");
+            e.HasKey(t => t.Id);
+            e.Property(t => t.Name).HasMaxLength(50);
+            e.Property(t => t.Color).HasMaxLength(7);
+            e.HasIndex(t => t.Name).IsUnique();
+        });
+
+        mb.Entity<ScheduledTaskTag>(e =>
+        {
+            e.ToTable("scheduled_task_tags");
+            e.HasKey(x => new { x.TaskId, x.TagId });
+
+            e.HasOne(x => x.Task)
+             .WithMany(t => t.TaskTags)
+             .HasForeignKey(x => x.TaskId)
+             .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(x => x.Tag)
+             .WithMany(t => t.TaskTags)
+             .HasForeignKey(x => x.TagId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        mb.Entity<AuditLog>(e =>
+        {
+            e.ToTable("audit_logs");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Action).HasMaxLength(100);
+            e.Property(x => x.EntityType).HasMaxLength(50);
+            e.Property(x => x.EntityName).HasMaxLength(200);
+            e.HasIndex(x => x.EntityId);
+            e.HasIndex(x => x.Action);
+            e.HasIndex(x => x.CreatedAt);
         });
     }
 }

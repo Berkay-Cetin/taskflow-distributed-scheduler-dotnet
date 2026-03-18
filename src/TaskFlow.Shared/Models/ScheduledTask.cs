@@ -34,6 +34,8 @@ public class ScheduledTask
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    // Navigation
+    public ICollection<ScheduledTaskTag> TaskTags { get; set; } = new List<ScheduledTaskTag>();
 }
 
 public enum ScheduleType

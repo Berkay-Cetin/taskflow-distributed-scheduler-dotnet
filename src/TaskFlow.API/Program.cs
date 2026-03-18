@@ -28,6 +28,9 @@ builder.Services.AddSingleton<IConnectionMultiplexer>(
 builder.Services.AddMediatR(cfg =>
     cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));
 
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<AuditService>();
+
 // Services
 builder.Services.AddSingleton<KafkaProducerService>();
 builder.Services.AddSingleton<ScheduleCalculator>();
@@ -45,6 +48,26 @@ builder.Services.AddCors(opts => opts.AddPolicy("react", p =>
 
 // FluentValidation
 builder.Services.AddValidatorsFromAssembly(typeof(Program).Assembly);
+
+// Health Checks
+builder.Services.AddHealthChecks()
+    .AddNpgSql(
+        builder.Configuration.GetConnectionString("Postgres")!,
+        name: "postgres",
+        tags: new[] { "db", "ready" })
+    .AddRedis(
+        builder.Configuration["Redis:ConnectionString"]!,
+        name: "redis",
+        tags: new[] { "cache", "ready" })
+    .AddKafka(
+        new Confluent.Kafka.ProducerConfig
+        {
+            BootstrapServers = builder.Configuration["Kafka:BootstrapServers"],
+            MessageTimeoutMs = 5000,
+        },
+        topic: "task.trigger",
+        name: "kafka",
+        tags: new[] { "messaging", "ready" });
 
 builder.Services.AddControllers()
     .AddJsonOptions(opts =>
@@ -69,6 +92,39 @@ app.Urls.Add("http://localhost:5200");
 app.UseCors("react");
 app.UseSwagger();
 app.UseSwaggerUI();
+
+// Health check endpoints
+app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    ResponseWriter = async (context, report) =>
+    {
+        context.Response.ContentType = "application/json";
+        var result = System.Text.Json.JsonSerializer.Serialize(new
+        {
+            status = report.Status.ToString(),
+            checked_at = DateTime.UtcNow,
+            services = report.Entries.Select(e => new
+            {
+                name = e.Key,
+                status = e.Value.Status.ToString(),
+                duration = e.Value.Duration.TotalMilliseconds + "ms",
+                error = e.Value.Exception?.Message
+            })
+        });
+        await context.Response.WriteAsync(result);
+    }
+});
+
+app.MapHealthChecks("/health/live", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = _ => false  // Sadece uygulama ayakta mı? DB kontrolü yok
+});
+
+app.MapHealthChecks("/health/ready", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready")
+});
+
 app.MapControllers();
 app.MapHub<TaskHub>("/hubs/tasks");
 

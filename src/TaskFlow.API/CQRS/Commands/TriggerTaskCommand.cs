@@ -10,15 +10,18 @@ public class TriggerTaskCommandHandler : IRequestHandler<TriggerTaskCommand, boo
 {
     private readonly TaskFlowDbContext _db;
     private readonly KafkaProducerService _kafka;
+    private readonly AuditService _audit;
     private readonly ILogger<TriggerTaskCommandHandler> _logger;
 
     public TriggerTaskCommandHandler(
         TaskFlowDbContext db,
         KafkaProducerService kafka,
+        AuditService audit,
         ILogger<TriggerTaskCommandHandler> logger)
     {
         _db = db;
         _kafka = kafka;
+        _audit = audit;
         _logger = logger;
     }
 
@@ -28,6 +31,7 @@ public class TriggerTaskCommandHandler : IRequestHandler<TriggerTaskCommand, boo
         if (task is null || !task.IsEnabled) return false;
 
         await _kafka.PublishTriggerAsync(task);
+        await _audit.LogAsync("TaskManuallyTriggered", "Task", task.Id, task.Name);
         _logger.LogInformation("[MANUAL TRIGGER] {Name}", task.Name);
         return true;
     }

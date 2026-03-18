@@ -5,7 +5,7 @@ using TaskFlow.Shared.Models;
 
 namespace TaskFlow.API.CQRS.Queries;
 
-public record GetTasksQuery : IRequest<List<ScheduledTask>>;
+public record GetTasksQuery(string? TagFilter = null) : IRequest<List<ScheduledTask>>;
 
 public class GetTasksQueryHandler : IRequestHandler<GetTasksQuery, List<ScheduledTask>>
 {
@@ -14,5 +14,15 @@ public class GetTasksQueryHandler : IRequestHandler<GetTasksQuery, List<Schedule
     public GetTasksQueryHandler(TaskFlowDbContext db) => _db = db;
 
     public async Task<List<ScheduledTask>> Handle(GetTasksQuery query, CancellationToken ct)
-        => await _db.Tasks.AsNoTracking().OrderBy(t => t.Name).ToListAsync(ct);
+    {
+        var q = _db.Tasks
+            .Include(t => t.TaskTags)
+                .ThenInclude(tt => tt.Tag)
+            .AsNoTracking();
+
+        if (!string.IsNullOrEmpty(query.TagFilter))
+            q = q.Where(t => t.TaskTags.Any(tt => tt.Tag!.Name == query.TagFilter));
+
+        return await q.OrderBy(t => t.Priority).ThenBy(t => t.Name).ToListAsync(ct);
+    }
 }
