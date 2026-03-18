@@ -14,6 +14,8 @@ public class TaskFlowDbContext : DbContext
     public DbSet<ScheduledTaskTag> TaskTags => Set<ScheduledTaskTag>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<ExecutionLog> ExecutionLogs => Set<ExecutionLog>();
+    public DbSet<User> Users => Set<User>();
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
     protected override void OnModelCreating(ModelBuilder mb)
     {
@@ -107,6 +109,28 @@ public class TaskFlowDbContext : DbContext
              .OnDelete(DeleteBehavior.Cascade);
             e.HasIndex(x => x.ExecutionId);
             e.HasIndex(x => x.CreatedAt);
+        });
+
+        mb.Entity<User>(e =>
+        {
+            e.ToTable("users");
+            e.HasKey(u => u.Id);
+            e.Property(u => u.Username).HasMaxLength(100);
+            e.Property(u => u.Email).HasMaxLength(200);
+            e.Property(u => u.Role).HasMaxLength(20);
+            e.HasIndex(u => u.Username).IsUnique();
+            e.HasIndex(u => u.Email).IsUnique();
+        });
+
+        mb.Entity<RefreshToken>(e =>
+        {
+            e.ToTable("refresh_tokens");
+            e.HasKey(r => r.Id);
+            e.HasOne(r => r.User)
+             .WithMany()
+             .HasForeignKey(r => r.UserId)
+             .OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(r => r.Token).IsUnique();
         });
     }
 }

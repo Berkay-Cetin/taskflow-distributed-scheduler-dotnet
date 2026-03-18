@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react'
-import { Plus, Activity, RefreshCw, ChevronRight, Clock, CheckCircle, XCircle, Loader, Filter } from 'lucide-react'
+import { Plus, Activity, RefreshCw, ChevronRight, Clock, CheckCircle, XCircle, Loader, Filter, LogOut, User } from 'lucide-react'
 import type { ScheduledTask, TaskExecution, ExecStatus } from './types'
 import { taskApi } from './api/taskApi'
 import { TaskCard } from './components/TaskCard'
 import { TaskForm } from './components/TaskForm'
 import { StatusBadge } from './components/StatusBadge'
 import { StatsDashboard } from './components/StatsDashboard'
+import { useAuth } from './context/AuthContext'
+import { LoginPage } from './pages/LoginPage'
 
 function duration(ms: number) {
   if (!ms) return '-'
@@ -26,10 +28,12 @@ function timeAgo(dateStr: string) {
 const PAGE_SIZE = 20
 
 export default function App() {
+  const { user, loading, logout } = useAuth()
+
   const [tasks, setTasks]                 = useState<ScheduledTask[]>([])
   const [selected, setSelected]           = useState<ScheduledTask | null>(null)
   const [showForm, setShowForm]           = useState(false)
-  const [loading, setLoading]             = useState(false)
+  const [loadingData, setLoadingData]     = useState(false)
   const [allExecutions, setAllExecutions] = useState<(TaskExecution & { taskName: string })[]>([])
   const [statusFilter, setStatusFilter]   = useState<ExecStatus | 'All'>('All')
   const [taskFilter, setTaskFilter]       = useState<string | null>(null)
@@ -37,11 +41,10 @@ export default function App() {
   const [activeTab, setActiveTab]         = useState<'tasks' | 'stats'>('tasks')
 
   const loadTasks = async () => {
-    setLoading(true)
+    setLoadingData(true)
     try {
       const data = await taskApi.getAll()
       setTasks(data)
-
       const execPromises = data.map(t =>
         taskApi.getExecutions(t.id, 1).then(execs =>
           execs.map(e => ({ ...e, taskName: t.name }))
@@ -51,16 +54,25 @@ export default function App() {
       all.sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime())
       setAllExecutions(all)
     } finally {
-      setLoading(false)
+      setLoadingData(false)
     }
   }
 
-  useEffect(() => { loadTasks() }, [])
+  useEffect(() => { if (user) loadTasks() }, [user])
 
   useEffect(() => {
+    if (!user) return
     const interval = setInterval(loadTasks, 5000)
     return () => clearInterval(interval)
-  }, [])
+  }, [user])
+
+  if (loading) return (
+    <div className="min-h-screen bg-dark-900 flex items-center justify-center">
+      <div className="text-slate-400">Loading...</div>
+    </div>
+  )
+
+  if (!user) return <LoginPage />
 
   const handleSelectTask = (task: ScheduledTask) => {
     if (selected?.id === task.id) {
@@ -111,9 +123,22 @@ export default function App() {
             </span>
           </div>
           <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 text-sm text-slate-400 bg-dark-700 px-3 py-1.5 rounded">
+              <User size={14} />
+              <span>{user.username}</span>
+              <span className="text-xs text-slate-600">·</span>
+              <span className="text-xs text-blue-400">{user.role}</span>
+            </div>
+            <button
+              onClick={logout}
+              className="p-2 text-slate-400 hover:text-red-400 transition-colors"
+              title="Logout"
+            >
+              <LogOut size={16} />
+            </button>
             <button onClick={loadTasks}
               className="p-2 text-slate-400 hover:text-white transition-colors">
-              <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+              <RefreshCw size={16} className={loadingData ? 'animate-spin' : ''} />
             </button>
             <button onClick={() => setShowForm(true)}
               className="flex items-center gap-2 bg-accent-500 hover:bg-blue-700
@@ -199,7 +224,7 @@ export default function App() {
                 </div>
               )}
 
-              {tasks.length === 0 && !loading && (
+              {tasks.length === 0 && !loadingData && (
                 <div className="text-center py-16 text-slate-500">
                   <Activity size={40} className="mx-auto mb-3 opacity-30" />
                   <p>No tasks yet. Create your first task!</p>
@@ -255,7 +280,7 @@ export default function App() {
                   ))}
                   <button onClick={loadTasks}
                     className="text-slate-500 hover:text-white transition-colors ml-1">
-                    <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
+                    <RefreshCw size={13} className={loadingData ? 'animate-spin' : ''} />
                   </button>
                 </div>
               </div>

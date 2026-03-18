@@ -174,9 +174,8 @@ public class SchedulerWorker : BackgroundService
 
         var missed = await db.MissedRuns
             .Where(m => !m.Recovered)
-            .Include(m => m.Task)
             .OrderBy(m => m.ScheduledAt)
-            .ToListAsync();
+            .ToListAsync();  // Include kaldırıldı
 
         if (missed.Count == 0) return;
 
@@ -184,12 +183,14 @@ public class SchedulerWorker : BackgroundService
 
         foreach (var run in missed)
         {
-            if (run.Task is null || !run.Task.IsEnabled) continue;
+            // Task'ı ayrıca çek
+            var task = await db.Tasks.FindAsync(run.TaskId);
+            if (task is null || !task.IsEnabled) continue;
 
             _logger.LogInformation("[RECOVERY] {TaskName} çalıştırılıyor (missed: {At})",
                 run.TaskName, run.ScheduledAt);
 
-            await _kafka.PublishTriggerAsync(run.Task, Guid.NewGuid());
+            await _kafka.PublishTriggerAsync(task, Guid.NewGuid());
 
             run.Recovered = true;
             run.RecoveredAt = DateTime.UtcNow;

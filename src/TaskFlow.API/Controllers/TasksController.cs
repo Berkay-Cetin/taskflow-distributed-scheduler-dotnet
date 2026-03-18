@@ -4,11 +4,14 @@ using Microsoft.EntityFrameworkCore;
 using TaskFlow.API.CQRS.Commands;
 using TaskFlow.API.CQRS.Queries;
 using TaskFlow.API.Data;
+using Microsoft.AspNetCore.Authorization;
 
 namespace TaskFlow.API.Controllers;
 
+[Authorize]
 [ApiController]
 [Route("api/[controller]")]
+
 public class TasksController : ControllerBase
 {
     private readonly IMediator _mediator;

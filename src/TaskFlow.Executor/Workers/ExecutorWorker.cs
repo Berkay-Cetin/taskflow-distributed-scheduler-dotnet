@@ -48,6 +48,22 @@ public class ExecutorWorker : BackgroundService
                 var result = _consumer.Consume(TimeSpan.FromMilliseconds(100));
                 if (result is null) continue;
 
+                // Boş veya geçersiz mesajı atla
+                if (string.IsNullOrWhiteSpace(result.Message.Value))
+                {
+                    _consumer.Commit(result);
+                    continue;
+                }
+
+                // JSON ile başlamıyorsa atla
+                if (!result.Message.Value.TrimStart().StartsWith('{'))
+                {
+                    _logger.LogWarning("[SKIP] Geçersiz mesaj: {Value}",
+                        result.Message.Value[..Math.Min(50, result.Message.Value.Length)]);
+                    _consumer.Commit(result);
+                    continue;
+                }
+
                 var trigger = JsonSerializer.Deserialize<TaskTriggerMessage>(result.Message.Value);
                 if (trigger is not null)
                     await ProcessTriggerAsync(trigger);

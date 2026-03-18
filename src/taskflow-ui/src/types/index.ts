@@ -76,3 +76,17 @@ export interface TaskStat {
   lastRunAt    : string | null
   lastStatus   : string
 }
+
+export interface AuthUser {
+  id      : string
+  username: string
+  email   : string
+  role    : string
+}
+
+export interface AuthResponse {
+  accessToken : string
+  refreshToken: string
+  expiresIn   : number
+  user        : AuthUser
+}
