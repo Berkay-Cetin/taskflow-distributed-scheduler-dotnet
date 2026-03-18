@@ -16,8 +16,9 @@ public class TaskExecution
     public DateTime StartedAt { get; set; } = DateTime.UtcNow;
     public DateTime? FinishedAt { get; set; }
 
-    // Navigation
     public ScheduledTask? Task { get; set; }
+    public string? ResponseBody { get; set; }
+    public ICollection<ExecutionLog> Logs { get; set; } = new List<ExecutionLog>();
 }
 
 public enum ExecutionStatus

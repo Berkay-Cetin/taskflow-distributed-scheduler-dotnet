@@ -25,7 +25,6 @@ public class WebhookInvoker
             using var client = _httpFactory.CreateClient();
             client.Timeout = TimeSpan.FromSeconds(trigger.Timeout > 0 ? trigger.Timeout : 60);
 
-            // Custom headers
             if (!string.IsNullOrEmpty(trigger.Headers))
             {
                 var headers = JsonSerializer.Deserialize<Dictionary<string, string>>(trigger.Headers);
@@ -34,7 +33,6 @@ public class WebhookInvoker
                         client.DefaultRequestHeaders.TryAddWithoutValidation(key, value);
             }
 
-            // HTTP isteği oluştur
             var request = new HttpRequestMessage(
                 new HttpMethod(trigger.HttpMethod),
                 trigger.WebhookUrl);
@@ -48,6 +46,11 @@ public class WebhookInvoker
             var responseBody = await response.Content.ReadAsStringAsync();
             var isSuccess = response.IsSuccessStatusCode;
 
+            // Response body'yi max 5000 karakter ile sınırla
+            var truncatedBody = responseBody.Length > 5000
+                ? responseBody[..5000] + "... [truncated]"
+                : responseBody;
+
             _logger.LogInformation(
                 "[WEBHOOK] {TaskName} → {StatusCode} | {Duration}ms | Attempt: {Attempt}",
                 trigger.TaskName, (int)response.StatusCode, sw.ElapsedMilliseconds, trigger.AttemptNo);
@@ -59,6 +62,7 @@ public class WebhookInvoker
                 IsSuccess = isSuccess,
                 StatusCode = (int)response.StatusCode,
                 Response = responseBody[..Math.Min(responseBody.Length, 2000)],
+                ResponseBody = truncatedBody,
                 DurationMs = sw.ElapsedMilliseconds,
                 AttemptNo = trigger.AttemptNo,
                 WillRetry = !isSuccess && trigger.AttemptNo < trigger.RetryCount,
@@ -76,6 +80,7 @@ public class WebhookInvoker
                 ExecutionId = trigger.ExecutionId ?? Guid.NewGuid(),
                 IsSuccess = false,
                 ErrorMessage = ex.Message,
+                ErrorDetails = ex.ToString(),
                 DurationMs = sw.ElapsedMilliseconds,
                 AttemptNo = trigger.AttemptNo,
                 WillRetry = trigger.AttemptNo < trigger.RetryCount,

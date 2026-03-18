@@ -13,6 +13,7 @@ public class TaskFlowDbContext : DbContext
     public DbSet<TaskTag> Tags => Set<TaskTag>();
     public DbSet<ScheduledTaskTag> TaskTags => Set<ScheduledTaskTag>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<ExecutionLog> ExecutionLogs => Set<ExecutionLog>();
 
     protected override void OnModelCreating(ModelBuilder mb)
     {
@@ -91,6 +92,20 @@ public class TaskFlowDbContext : DbContext
             e.Property(x => x.EntityName).HasMaxLength(200);
             e.HasIndex(x => x.EntityId);
             e.HasIndex(x => x.Action);
+            e.HasIndex(x => x.CreatedAt);
+        });
+
+        mb.Entity<ExecutionLog>(e =>
+        {
+            e.ToTable("execution_logs");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Level).HasConversion<string>();
+            e.Property(x => x.Message).HasMaxLength(500);
+            e.HasOne(x => x.Execution)
+             .WithMany(x => x.Logs)
+             .HasForeignKey(x => x.ExecutionId)
+             .OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => x.ExecutionId);
             e.HasIndex(x => x.CreatedAt);
         });
     }

@@ -81,4 +81,15 @@ public class TasksController : ControllerBase
             .ToListAsync();
         return Ok(runs);
     }
+
+    [HttpGet("{id:guid}/executions/{executionId:guid}/logs")]
+    public async Task<IActionResult> GetExecutionLogs(Guid id, Guid executionId)
+    {
+        var logs = await _db.ExecutionLogs
+            .Where(l => l.ExecutionId == executionId)
+            .OrderBy(l => l.CreatedAt)
+            .AsNoTracking()
+            .ToListAsync();
+        return Ok(logs);
+    }
 }

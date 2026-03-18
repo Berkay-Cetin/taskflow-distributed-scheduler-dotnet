@@ -1,6 +1,5 @@
 namespace TaskFlow.Shared.Messages;
 
-// Executor → API (Kafka) — sonucu raporla
 public record TaskResultMessage
 {
     public string MessageId { get; init; } = Guid.NewGuid().ToString();
@@ -9,7 +8,9 @@ public record TaskResultMessage
     public bool IsSuccess { get; init; }
     public int? StatusCode { get; init; }
     public string? Response { get; init; }
+    public string? ResponseBody { get; init; }
     public string? ErrorMessage { get; init; }
+    public string? ErrorDetails { get; init; }
     public long DurationMs { get; init; }
     public int AttemptNo { get; init; }
     public bool WillRetry { get; init; }

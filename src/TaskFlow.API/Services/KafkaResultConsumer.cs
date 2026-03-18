@@ -77,12 +77,54 @@ public class KafkaResultConsumer : BackgroundService
         if (execution is not null)
         {
             execution.Status = msg.IsSuccess ? ExecutionStatus.Success :
-                                    msg.WillRetry ? ExecutionStatus.Retrying : ExecutionStatus.Dead;
+                                     msg.WillRetry ? ExecutionStatus.Retrying :
+                                                         ExecutionStatus.Dead;
             execution.StatusCode = msg.StatusCode;
             execution.Response = msg.Response;
+            execution.ResponseBody = msg.ResponseBody;
             execution.ErrorMessage = msg.ErrorMessage;
             execution.DurationMs = msg.DurationMs;
             execution.FinishedAt = DateTime.UtcNow;
+
+            // Execution log kaydet
+            var logLevel = msg.IsSuccess
+                ? TaskFlow.Shared.Models.LogLevel.Info
+                : TaskFlow.Shared.Models.LogLevel.Error;
+
+            var logMessage = msg.IsSuccess
+                ? $"Webhook completed successfully in {msg.DurationMs}ms"
+                : $"Webhook failed: {msg.ErrorMessage}";
+
+            db.ExecutionLogs.Add(new ExecutionLog
+            {
+                ExecutionId = msg.ExecutionId,
+                Level = logLevel,
+                Message = logMessage,
+                Details = msg.IsSuccess ? msg.ResponseBody : msg.ErrorDetails,
+            });
+
+            // Retry log
+            if (msg.WillRetry)
+            {
+                db.ExecutionLogs.Add(new ExecutionLog
+                {
+                    ExecutionId = msg.ExecutionId,
+                    Level = TaskFlow.Shared.Models.LogLevel.Warning,
+                    Message = $"Retrying attempt {msg.AttemptNo + 1}...",
+                });
+            }
+
+            // Dead log
+            if (!msg.IsSuccess && !msg.WillRetry)
+            {
+                db.ExecutionLogs.Add(new ExecutionLog
+                {
+                    ExecutionId = msg.ExecutionId,
+                    Level = TaskFlow.Shared.Models.LogLevel.Error,
+                    Message = "Max retry exceeded. Task moved to dead letter.",
+                    Details = msg.ErrorDetails,
+                });
+            }
         }
 
         // Task güncelle
@@ -93,12 +135,12 @@ public class KafkaResultConsumer : BackgroundService
             task.ActiveExecutions = Math.Max(0, task.ActiveExecutions - 1);
             task.LastStatus = msg.IsSuccess ? TaskFlow.Shared.Models.TaskStatus.Success :
                                     msg.WillRetry ? TaskFlow.Shared.Models.TaskStatus.Running :
-                                                   TaskFlow.Shared.Models.TaskStatus.Failed;
+                                                        TaskFlow.Shared.Models.TaskStatus.Failed;
         }
 
         await db.SaveChangesAsync();
 
-        // SignalR ile dashboard'a push et
+        // SignalR push
         var groupName = $"task-{msg.TaskId}";
         await _hub.Clients.Group(groupName).SendAsync("ExecutionCompleted", new
         {
