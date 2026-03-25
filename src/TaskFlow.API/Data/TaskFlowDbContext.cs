@@ -16,6 +16,8 @@ public class TaskFlowDbContext : DbContext
     public DbSet<ExecutionLog> ExecutionLogs => Set<ExecutionLog>();
     public DbSet<User> Users => Set<User>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<AlertRule> AlertRules => Set<AlertRule>();
+    public DbSet<AlertHistory> AlertHistories => Set<AlertHistory>();
 
     protected override void OnModelCreating(ModelBuilder mb)
     {
@@ -131,6 +133,31 @@ public class TaskFlowDbContext : DbContext
              .HasForeignKey(r => r.UserId)
              .OnDelete(DeleteBehavior.Cascade);
             e.HasIndex(r => r.Token).IsUnique();
+        });
+
+        mb.Entity<AlertRule>(e =>
+        {
+            e.ToTable("alert_rules");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.TriggerType).HasConversion<string>();
+            e.Property(x => x.Name).HasMaxLength(200);
+            e.HasOne(x => x.Task)
+             .WithMany()
+             .HasForeignKey(x => x.TaskId)
+             .OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => x.TaskId);
+        });
+
+        mb.Entity<AlertHistory>(e =>
+        {
+            e.ToTable("alert_histories");
+            e.HasKey(x => x.Id);
+            e.HasOne(x => x.AlertRule)
+             .WithMany()
+             .HasForeignKey(x => x.AlertRuleId)
+             .OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => x.TaskId);
+            e.HasIndex(x => x.CreatedAt);
         });
     }
 }

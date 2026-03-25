@@ -112,7 +112,8 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-dark-900">
-      {/* Header */}
+
+      {/* Header — Logo + User */}
       <header className="border-b border-dark-700 px-6 py-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -122,7 +123,7 @@ export default function App() {
               Distributed Task Scheduler
             </span>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <div className="flex items-center gap-2 text-sm text-slate-400 bg-dark-700 px-3 py-1.5 rounded">
               <User size={14} />
               <span>{user.username}</span>
@@ -136,6 +137,28 @@ export default function App() {
             >
               <LogOut size={16} />
             </button>
+          </div>
+        </div>
+      </header>
+
+      {/* Actions Bar — Tabs + Buttons */}
+      <div className="border-b border-dark-700 px-6 py-2">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <div className="flex gap-6">
+            {(['tasks', 'stats'] as const).map(tab => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`py-2 text-sm font-medium border-b-2 transition-colors
+                  ${activeTab === tab
+                    ? 'border-blue-500 text-blue-400'
+                    : 'border-transparent text-slate-400 hover:text-white'}`}
+              >
+                {tab === 'tasks' ? '⚡ Tasks' : '📊 Statistics'}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-2">
             <button onClick={loadTasks}
               className="p-2 text-slate-400 hover:text-white transition-colors">
               <RefreshCw size={16} className={loadingData ? 'animate-spin' : ''} />
@@ -147,24 +170,6 @@ export default function App() {
             </button>
           </div>
         </div>
-      </header>
-
-      {/* Tab Navigation */}
-      <div className="border-b border-dark-700 px-6">
-        <div className="max-w-7xl mx-auto flex gap-6">
-          {(['tasks', 'stats'] as const).map(tab => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`py-3 text-sm font-medium border-b-2 transition-colors
-                ${activeTab === tab
-                  ? 'border-blue-500 text-blue-400'
-                  : 'border-transparent text-slate-400 hover:text-white'}`}
-            >
-              {tab === 'tasks' ? '⚡ Tasks' : '📊 Statistics'}
-            </button>
-          ))}
-        </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-6 py-6 space-y-6">
@@ -172,7 +177,7 @@ export default function App() {
           <StatsDashboard />
         ) : (
           <>
-            {/* Stats */}
+            {/* Stats Cards */}
             <div className="grid grid-cols-4 gap-4">
               {[
                 { label: 'Total Tasks', value: stats.total,   color: 'text-white' },
@@ -247,7 +252,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* Global History Table */}
+            {/* Execution History Table */}
             <div className="bg-dark-800 border border-dark-600 rounded-lg overflow-hidden">
               <div className="flex items-center justify-between px-5 py-4 border-b border-dark-600 flex-wrap gap-3">
                 <div className="flex items-center gap-2">

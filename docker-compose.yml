@@ -172,3 +172,98 @@ services:
     environment:
       KAFKA_CLUSTERS_0_NAME: taskflow
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29093
+
+  # ─────────────────────────────────────────
+  # TASKFLOW API
+  # ─────────────────────────────────────────
+  taskflow-api:
+    build:
+      context: .
+      dockerfile: src/TaskFlow.API/Dockerfile
+    container_name: taskflow-api
+    restart: unless-stopped
+    networks:
+      - taskflow-net
+    ports:
+      - "5200:8080"
+    environment:
+      ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=taskflow;Username=taskflow;Password=taskflow123"
+      ConnectionStrings__Redis: "redis:6379"
+      Kafka__BootstrapServers: "kafka:29093"
+      Jwt__Secret: "taskflow-super-secret-key-min-32-characters!!"
+      Jwt__Issuer: "TaskFlow"
+      Jwt__Audience: "TaskFlow"
+      Jwt__AccessTokenExpiryMinutes: "60"
+      Jwt__RefreshTokenExpiryDays: "7"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ─────────────────────────────────────────
+  # TASKFLOW SCHEDULER
+  # ─────────────────────────────────────────
+  taskflow-scheduler:
+    build:
+      context: .
+      dockerfile: src/TaskFlow.Scheduler/Dockerfile
+    container_name: taskflow-scheduler
+    restart: unless-stopped
+    networks:
+      - taskflow-net
+    environment:
+      ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=taskflow;Username=taskflow;Password=taskflow123"
+      Redis__ConnectionString: "redis:6379"
+      Kafka__BootstrapServers: "kafka:29093"
+      Kafka__Topics__TaskTrigger: "task.trigger"
+    depends_on:
+      taskflow-api:
+        condition: service_started
+      kafka:
+        condition: service_healthy
+
+  # ─────────────────────────────────────────
+  # TASKFLOW EXECUTOR
+  # ─────────────────────────────────────────
+  taskflow-executor:
+    build:
+      context: .
+      dockerfile: src/TaskFlow.Executor/Dockerfile
+    container_name: taskflow-executor
+    restart: unless-stopped
+    networks:
+      - taskflow-net
+    environment:
+      Kafka__BootstrapServers: "kafka:29093"
+      Kafka__ConsumerGroup: "taskflow-executor-group"
+      Kafka__Topics__TaskTrigger: "task.trigger"
+      Kafka__Topics__TaskResult: "task.result"
+      Kafka__Topics__DeadLetter: "task.deadletter"
+      RabbitMQ__Host: "rabbitmq"
+      RabbitMQ__Port: "5672"
+      RabbitMQ__Username: "taskflow"
+      RabbitMQ__Password: "taskflow123"
+    depends_on:
+      kafka:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  # ─────────────────────────────────────────
+  # TASKFLOW UI
+  # ─────────────────────────────────────────
+  taskflow-ui:
+    build:
+      context: src/taskflow-ui
+      dockerfile: Dockerfile
+    container_name: taskflow-ui
+    restart: unless-stopped
+    networks:
+      - taskflow-net
+    ports:
+      - "3000:80"
+    depends_on:
+      - taskflow-api

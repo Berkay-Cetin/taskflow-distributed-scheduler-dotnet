@@ -14,16 +14,19 @@ public class KafkaResultConsumer : BackgroundService
     private readonly IConsumer<string, string> _consumer;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IHubContext<TaskHub> _hub;
+    private readonly AlertService _alertService;
     private readonly ILogger<KafkaResultConsumer> _logger;
 
     public KafkaResultConsumer(
         IConfiguration config,
         IServiceScopeFactory scopeFactory,
         IHubContext<TaskHub> hub,
+        AlertService alertService,
         ILogger<KafkaResultConsumer> logger)
     {
         _scopeFactory = scopeFactory;
         _hub = hub;
+        _alertService = alertService;
         _logger = logger;
 
         _consumer = new ConsumerBuilder<string, string>(new ConsumerConfig
@@ -39,9 +42,7 @@ public class KafkaResultConsumer : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        // Uygulama tamamen başlayana kadar bekle
         await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
-
         _logger.LogInformation("KafkaResultConsumer başladı");
 
         while (!stoppingToken.IsCancellationRequested)
@@ -52,9 +53,9 @@ public class KafkaResultConsumer : BackgroundService
                 if (result is null) continue;
 
                 var msg = JsonSerializer.Deserialize<TaskResultMessage>(result.Message.Value);
-                if (msg is null) continue;
+                if (msg is not null)
+                    await ProcessResultAsync(msg);
 
-                await ProcessResultAsync(msg);
                 _consumer.Commit(result);
             }
             catch (OperationCanceledException) { break; }
@@ -72,7 +73,6 @@ public class KafkaResultConsumer : BackgroundService
         using var scope = _scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<TaskFlowDbContext>();
 
-        // Execution güncelle
         var execution = await db.Executions.FindAsync(msg.ExecutionId);
         if (execution is not null)
         {
@@ -86,37 +86,29 @@ public class KafkaResultConsumer : BackgroundService
             execution.DurationMs = msg.DurationMs;
             execution.FinishedAt = DateTime.UtcNow;
 
-            // Execution log kaydet
             var logLevel = msg.IsSuccess
                 ? TaskFlow.Shared.Models.LogLevel.Info
                 : TaskFlow.Shared.Models.LogLevel.Error;
-
-            var logMessage = msg.IsSuccess
-                ? $"Webhook completed successfully in {msg.DurationMs}ms"
-                : $"Webhook failed: {msg.ErrorMessage}";
 
             db.ExecutionLogs.Add(new ExecutionLog
             {
                 ExecutionId = msg.ExecutionId,
                 Level = logLevel,
-                Message = logMessage,
+                Message = msg.IsSuccess
+                    ? $"Completed successfully in {msg.DurationMs}ms"
+                    : $"Failed: {msg.ErrorMessage}",
                 Details = msg.IsSuccess ? msg.ResponseBody : msg.ErrorDetails,
             });
 
-            // Retry log
             if (msg.WillRetry)
-            {
                 db.ExecutionLogs.Add(new ExecutionLog
                 {
                     ExecutionId = msg.ExecutionId,
                     Level = TaskFlow.Shared.Models.LogLevel.Warning,
                     Message = $"Retrying attempt {msg.AttemptNo + 1}...",
                 });
-            }
 
-            // Dead log
             if (!msg.IsSuccess && !msg.WillRetry)
-            {
                 db.ExecutionLogs.Add(new ExecutionLog
                 {
                     ExecutionId = msg.ExecutionId,
@@ -124,10 +116,8 @@ public class KafkaResultConsumer : BackgroundService
                     Message = "Max retry exceeded. Task moved to dead letter.",
                     Details = msg.ErrorDetails,
                 });
-            }
         }
 
-        // Task güncelle
         var task = await db.Tasks.FindAsync(msg.TaskId);
         if (task is not null)
         {
@@ -141,8 +131,7 @@ public class KafkaResultConsumer : BackgroundService
         await db.SaveChangesAsync();
 
         // SignalR push
-        var groupName = $"task-{msg.TaskId}";
-        await _hub.Clients.Group(groupName).SendAsync("ExecutionCompleted", new
+        await _hub.Clients.Group($"task-{msg.TaskId}").SendAsync("ExecutionCompleted", new
         {
             msg.TaskId,
             msg.ExecutionId,
@@ -153,6 +142,12 @@ public class KafkaResultConsumer : BackgroundService
             msg.WillRetry,
             CompletedAt = DateTime.UtcNow
         });
+
+        // Alert kontrol
+        await _alertService.CheckAndFireAsync(
+            msg.TaskId,
+            msg.IsSuccess,
+            !msg.IsSuccess && !msg.WillRetry);
 
         _logger.LogInformation("[RESULT] {TaskId} → {Status} | {Duration}ms",
             msg.TaskId, msg.IsSuccess ? "SUCCESS" : "FAILED", msg.DurationMs);

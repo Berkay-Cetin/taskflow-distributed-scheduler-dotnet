@@ -36,6 +36,7 @@ builder.Services.AddScoped<AuditService>();
 builder.Services.AddSingleton<KafkaProducerService>();
 builder.Services.AddSingleton<ScheduleCalculator>();
 builder.Services.AddHostedService<KafkaResultConsumer>();
+builder.Services.AddSingleton<AlertService>();
 
 // SignalR
 builder.Services.AddSignalR();
