@@ -17,6 +17,8 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Host.UseSerilog((ctx, services, config) =>
     config.ReadFrom.Configuration(ctx.Configuration));
 
+builder.Services.AddHttpClient();
+
 // PostgreSQL
 builder.Services.AddDbContext<TaskFlowDbContext>(opts =>
     opts.UseNpgsql(builder.Configuration.GetConnectionString("Postgres")));
