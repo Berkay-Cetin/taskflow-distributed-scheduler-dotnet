@@ -22,35 +22,35 @@ A production-grade, cloud-native distributed task scheduler built with .NET 8 mi
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                           TASKFLOW                                  │
-│                                                                     │
-│  ┌──────────────────────────────────────────────────────────────┐  │
-│  │            React Dashboard (TypeScript + Vite)               │  │
-│  │   Task CRUD · Live Logs · Statistics · Alerts · Auth         │  │
-│  └─────────────────────┬────────────────────────────────────────┘  │
-│                        │ SignalR (real-time)                        │
-│                        ▼                                            │
-│  ┌──────────────────────────────────────────────────────────────┐  │
-│  │              TaskFlow.API  (.NET 8 Web API)                  │  │
-│  │   REST API · JWT Auth · CQRS + MediatR · SignalR Hub         │  │
-│  └──────┬───────────────┬──────────────────────────────────────┘   │
-│         │               │                                           │
-│    PostgreSQL      Kafka (task.trigger)                             │
-│    (tasks, logs)         │                                          │
-│                          ▼                                          │
-│  ┌──────────────────────────────────────────────────────────────┐  │
-│  │         TaskFlow.Scheduler  (.NET 8 Worker)                  │  │
-│  │   Cron Engine · Redis Distributed Lock · Priority Queue      │  │
-│  └──────────────────────┬─────────────────────────────────────┘   │
-│                          │ Kafka (task.trigger)                     │
-│                          ▼                                          │
-│  ┌──────────────────────────────────────────────────────────────┐  │
-│  │         TaskFlow.Executor  (.NET 8 Worker)                   │  │
-│  │   Webhook Invoker · Retry Logic · MassTransit/RabbitMQ       │  │
-│  └──────────────────────┬─────────────────────────────────────┘   │
-│                          │ Kafka (task.result)                      │
-│                          ▼                                          │
-│              API consumes results → DB + SignalR push               │
+│                           TASKFLOW                                  
+│                                                                     
+│  ┌──────────────────────────────────────────────────────────────┐  
+│  │            React Dashboard (TypeScript + Vite)               │  
+│  │   Task CRUD · Live Logs · Statistics · Alerts · Auth         │  
+│  └─────────────────────┬────────────────────────────────────────┘  
+│                        │ SignalR (real-time)                        
+│                        ▼                                            
+│  ┌──────────────────────────────────────────────────────────────┐  
+│  │              TaskFlow.API  (.NET 8 Web API)                  │  
+│  │   REST API · JWT Auth · CQRS + MediatR · SignalR Hub         │  
+│  └──────┬───────────────┬──────────────────────────────────────┘   
+│         │               │                                           
+│    PostgreSQL      Kafka (task.trigger)                             
+│    (tasks, logs)         │                                          
+│                          ▼                                          
+│  ┌──────────────────────────────────────────────────────────────┐  
+│  │         TaskFlow.Scheduler  (.NET 8 Worker)                  │  
+│  │   Cron Engine · Redis Distributed Lock · Priority Queue      │  
+│  └──────────────────────┬─────────────────────────────────────┘   
+│                          │ Kafka (task.trigger)                     
+│                          ▼                                          
+│  ┌──────────────────────────────────────────────────────────────┐  
+│  │         TaskFlow.Executor  (.NET 8 Worker)                   │  
+│  │   Webhook Invoker · Retry Logic · MassTransit/RabbitMQ       │  
+│  └──────────────────────┬─────────────────────────────────────┘   
+│                          │ Kafka (task.result)                      
+│                          ▼                                          
+│              API consumes results → DB + SignalR push               
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
