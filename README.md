@@ -183,8 +183,6 @@ curl -X POST http://localhost:5200/api/auth/register \
   -d '{"username":"admin","email":"admin@taskflow.com","password":"Admin123!","role":"Admin"}'
 ```
 
-Open **http://localhost:5173** and login.
-
 ---
 
 ## Monitoring
