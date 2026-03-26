@@ -13,9 +13,6 @@
 
 A production-grade, cloud-native distributed task scheduler built with .NET 8 microservices. Define HTTP webhook tasks, schedule them with cron or interval expressions, and monitor real-time execution — all from a clean React dashboard.
 
-> **"Bring your own tasks, we handle the rest."**
-> Drop TaskFlow into any project, point it at your endpoints, and let it handle scheduling, retries, alerting, and monitoring.
-
 ---
 
 ## Architecture
